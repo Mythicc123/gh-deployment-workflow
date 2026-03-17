@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────
+# deploy.yml — GitHub Actions workflow
+# Deploys index.html to GitHub Pages on every push that
+# modifies index.html on the main branch.
+# ─────────────────────────────────────────────────────────────
+
+name: Deploy to GitHub Pages
+
+# TRIGGER: When does this workflow run?
+# - Only on pushes to the `main` branch
+# - Only when `index.html` was part of the push (path filter)
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+
+# PERMISSIONS: What can GITHUB_TOKEN do during this run?
+# pages: write  — allows uploading to GitHub Pages
+# id-token: write — allows OIDC token for trusted deployment
+# contents: read  — allows reading repo files
+permissions:
+  pages: write
+  id-token: write
+  contents: read
+
+# CONCURRENCY: If two deployments are triggered at once,
+# cancel the older one and keep only the latest.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # The runner — a fresh Ubuntu VM GitHub spins up for this job
+    runs-on: ubuntu-latest
+
+    # Required for deploy-pages action
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      # STEP 1: Check out your repository code onto the runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # STEP 2: Configure GitHub Pages (sets up the Pages environment)
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      # STEP 3: Bundle index.html into an artifact Pages can consume
+      # The `path: '.'` means upload everything in the repo root
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      # STEP 4: Deploy the artifact to GitHub Pages
+      # The `id: deployment` lets us reference its outputs (the URL) above
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
